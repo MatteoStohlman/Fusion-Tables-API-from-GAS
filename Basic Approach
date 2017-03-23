@@ -1,0 +1,84 @@
+var CLIENT_ID = ‘xxxxxxxxxxxxxxxxxx';
+var CLIENT_SECRET='xxxxxxxxxxxxx';
+var REDIRECT_URL= 'xxxxxxxxxxxxxxxxxxxxxx';
+var tokenPropertyName = 'FUSIONTABLES_OAUTH_TOKEN'; 
+var tokenPropertyName2 = "SECOND_TOKEN";
+var TOKEN_URL = 'https://accounts.google.com/o/oauth2/token'; //step 2. after we get the callback, go get token
+var tableName = ‘xxxxxxxxxxxx';
+
+function firstRound() {
+  var urlll = "https://accounts.google.com/o/oauth2/auth?response_type=code&redirect_uri="+REDIRECT_URL+"&client_id="+CLIENT_ID+"&scope=https://www.googleapis.com/auth/fusiontables";
+  var payload =  {
+    client_secret :CLIENT_SECRET,
+    client_id: CLIENT_ID,
+    redirect_uri: REDIRECT_URL,
+    grant_type: "authorization_code",
+    response_type: "code"
+     };
+  var opt = {
+    "contentType" : "application/json",
+    "method" : "POST",
+    "headers":{ "Content-Type":"application/json",
+               "response_type:":"code"
+               },
+    response_type: "code",
+    
+    payload : Utilities.jsonStringify(payload)
+  };
+var response = UrlFetchApp.fetch(urlll, opt);
+ Logger.log(urlll)
+var text = response.getContentText();
+Logger.log(text);
+}
+
+function doGet(e){
+  Logger.log("--DOGET()--");
+  Logger.log(e.parameter);
+  Logger.log(e.parameter.code);
+  
+  var app = UiApp.createApplication();
+  var panel = app.createHorizontalPanel();
+  var button = app.createButton(e.parameter.code);
+  
+  panel.add(button);
+  app.add(panel);
+  
+  UserProperties.setProperty("THE_CODE", e.parameter.code);
+  
+  return app;
+}
+
+function getAndStoreAccessToken(){
+  var code = UserProperties.getProperty("THE_CODE");
+  var parameters = {
+    method : 'post',
+    payload : 'client_id='+CLIENT_ID+'&client_secret='+CLIENT_SECRET+'&grant_type=authorization_code&redirect_uri='+REDIRECT_URL+'&code=' + code
+  };
+  
+  var response = UrlFetchApp.fetch(TOKEN_URL,parameters).getContentText();   
+  var tokenResponse = JSON.parse(response);
+  Logger.log(tokenResponse)
+  
+  //store the token for later retrival
+  UserProperties.setProperty(tokenPropertyName2, tokenResponse.access_token);
+}
+
+function runSQL(){
+  var sql = "INSERT INTO "+tableName+" ('logNum','EmployeeName') VALUES (222,'TESTER')"
+  var getDataURL = 'https://www.googleapis.com/fusiontables/v1/query?sql='+sql;
+  var dataResponse = UrlFetchApp.fetch(getDataURL,getUrlFetchOptions()).getContentText();  
+  return dataResponse;
+}
+
+function getUrlFetchOptions() {
+  var token = UserProperties.getProperty(tokenPropertyName2);
+  return {
+    "method" : "post",
+    "contentType" : "application/json",
+    "headers" : {
+      "Authorization" : "Bearer " + token,
+      "Accept" : "application/json"
+    }
+  };
+}
+
